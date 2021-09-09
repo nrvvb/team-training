@@ -691,3 +691,98 @@ model = nn.Sequential(
     nn.Linear(32, 2))
 
 model(img.unsqueeze(0))
+
+"""
+Homework of asami.matsumoto
+Exercise 7-1(b),(c)
+"""
+
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from matplotlib import pyplot as plt
+from torchvision import datasets, transforms
+
+torch.set_printoptions(edgeitems=2)
+torch.manual_seed(123)
+
+
+class_names = ['airplane', 'automobile', 'bird', 'cat', 'deer',
+               'dog', 'frog', 'horse', 'ship', 'truck']
+
+data_path = '../data-unversioned/p1ch7/'
+cifar10 = datasets.CIFAR10(
+    data_path, train=True, download=True,
+    transform=transforms.Compose([
+        transforms.RandomCrop(30),
+        transforms.ToTensor(),
+        transforms.Normalize((0.4915, 0.4823, 0.4468),
+                             (0.2470, 0.2435, 0.2616))
+    ]))
+
+
+cifar10_val = datasets.CIFAR10(
+    data_path, train=False, download=False,
+    transform=transforms.Compose([
+        transforms.RandomCrop(30),
+        transforms.ToTensor(),
+        transforms.Normalize((0.4915, 0.4823, 0.4468),
+                             (0.2470, 0.2435, 0.2616))
+    ]))
+
+#【b】同じ画像を2回クロップするとどうなるか確認してください
+img_org = cifar10[1][0]
+crop = transforms.CenterCrop(10)
+img_cropped = crop(img_org)
+
+plt.imshow(img_org.permute(1, 2, 0))
+plt.show()
+
+plt.imshow(img_cropped.permute(1,2,0))
+plt.show()
+
+#【c】ランダムにクロップされた画像を使った訓練結果を確認してください
+
+label_map = {0: 0, 2: 1}
+class_names = ['airplane', 'bird']
+
+cifar2 = [(img, label_map[label])
+          for img, label in cifar10
+          if label in [0, 2]]
+cifar2_val = [(img, label_map[label])
+              for img, label in cifar10_val
+              if label in [0, 2]]
+
+n_out = 2
+
+model = nn.Sequential(
+    nn.Linear(
+        30*30*3,  # <1>
+        16,   # <2>
+    ),
+    nn.Tanh(),
+    nn.Linear(
+        16,   # <2>
+        n_out,  # <3>
+    )
+)
+
+learning_rate = 1e-2
+optimizer = optim.SGD(model.parameters(), lr=learning_rate)
+loss_fn = nn.CrossEntropyLoss()
+
+n_epochs = 100
+train_loader = torch.utils.data.DataLoader(cifar2, batch_size=25, shuffle=True)
+
+for epoch in range(n_epochs):
+    for imgs, labels in train_loader:
+        outputs = model(imgs.view(imgs.shape[0], -1))
+        loss = loss_fn(outputs, labels)
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+    print("Epoch: %d, Loss: %f" % (epoch, float(loss)))
